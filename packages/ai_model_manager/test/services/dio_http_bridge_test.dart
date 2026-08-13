@@ -147,6 +147,42 @@ void main() {
       expect(response.headers['set-cookie'], 'a=1, b=2');
     });
 
+    test('图片响应补齐兼容代理缺失的 usage details', () async {
+      final adapter = _RecordingAdapter((_, __) async {
+        return ResponseBody.fromString(
+          jsonEncode({
+            'created': 123,
+            'data': [
+              {'b64_json': 'valid-image-data'},
+            ],
+            'usage': {
+              'input_tokens': 9,
+              'output_tokens': 1650,
+              'total_tokens': 1659,
+            },
+          }),
+          200,
+          headers: {
+            'content-type': ['application/json'],
+          },
+        );
+      });
+      final client = DioBackedHttpClient(adapter);
+
+      final response = await client.post(
+        Uri.parse('https://api.example.com/v1/images/generations'),
+        headers: {'Content-Type': 'application/json'},
+        body: '{}',
+      );
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final usage = decoded['usage'] as Map<String, dynamic>;
+      final details = usage['input_tokens_details'] as Map<String, dynamic>;
+
+      expect((decoded['data'] as List).single['b64_json'], 'valid-image-data');
+      expect(details['text_tokens'], 0);
+      expect(details['image_tokens'], 0);
+    });
+
     test('DioException 转为 http.ClientException', () async {
       final adapter = _RecordingAdapter((options, _) async {
         throw DioException(

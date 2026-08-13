@@ -120,7 +120,7 @@ class DioBackedHttpClient extends http.BaseClient {
     try {
       final decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is Map<String, dynamic>) {
-        _patchImagesUsage(decoded['usage']);
+        _patchImagesUsage(decoded);
         return Uint8List.fromList(utf8.encode(jsonEncode(decoded)));
       }
     } catch (_) {
@@ -129,24 +129,32 @@ class DioBackedHttpClient extends http.BaseClient {
     return bytes;
   }
 
-  /// 给 usage 内部缺失的 int 字段补 0。
+  /// Normalize optional image usage fields before openai_dart parses them.
   ///
   /// openai_dart 4.x 要求 `usage.input_tokens_details.{text_tokens,image_tokens}`
   /// 是非空 int，但代理常返回空对象 `{}` 或省略字段。这里只补默认值，不覆盖
   /// 已有数据。
-  static void _patchImagesUsage(Object? usage) {
-    if (usage is! Map<String, dynamic>) return;
+  static void _patchImagesUsage(Map<String, dynamic> decoded) {
+    final usage = decoded['usage'];
+    if (usage == null) return;
+
+    // Usage is informational. A gateway returning a partial or malformed
+    // usage object must not make a valid data[0].b64_json response fail.
+    if (usage is! Map<String, dynamic>) {
+      decoded.remove('usage');
+      return;
+    }
     usage['total_tokens'] ??= 0;
     usage['input_tokens'] ??= 0;
     usage['output_tokens'] ??= 0;
 
     final inputDetails = usage['input_tokens_details'];
-    if (inputDetails == null) {
+    if (inputDetails is! Map<String, dynamic>) {
       usage['input_tokens_details'] = <String, dynamic>{
         'text_tokens': 0,
         'image_tokens': 0,
       };
-    } else if (inputDetails is Map<String, dynamic>) {
+    } else {
       inputDetails['text_tokens'] ??= 0;
       inputDetails['image_tokens'] ??= 0;
     }
@@ -155,6 +163,8 @@ class DioBackedHttpClient extends http.BaseClient {
     if (outputDetails is Map<String, dynamic>) {
       outputDetails['text_tokens'] ??= 0;
       outputDetails['image_tokens'] ??= 0;
+    } else if (outputDetails != null) {
+      usage.remove('output_tokens_details');
     }
   }
 

@@ -67,7 +67,12 @@ class _PostSolutionBannerState extends State<PostSolutionBanner> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _BannerHeader(count: answers.length),
+              _BannerHeader(
+                count: answers.length,
+                onTap: widget.onJumpToPost == null
+                    ? null
+                    : () => widget.onJumpToPost!(answers.first.postNumber),
+              ),
               for (var i = 0; i < answers.length; i++)
                 _AnswerRow(
                   key: ValueKey('accepted-answer-${answers[i].postNumber}'),
@@ -91,42 +96,53 @@ class _PostSolutionBannerState extends State<PostSolutionBanner> {
 
 class _BannerHeader extends StatelessWidget {
   final int count;
-  const _BannerHeader({required this.count});
+  final VoidCallback? onTap;
+
+  const _BannerHeader({required this.count, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF2E7D32)
-            : const Color(0xFF43A047),
-      ),
-      child: Row(
-        children: [
-          const Icon(Symbols.check_box_rounded, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            context.l10n.post_topicSolved,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
-          ),
-          if (count > 1) ...[
-            const SizedBox(width: 12),
-            Text(
-              context.l10n.post_solutionsCount(count),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontWeight: FontWeight.w500,
+    return Material(
+      color: isDark ? const Color(0xFF2E7D32) : const Color(0xFF43A047),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Symbols.check_box_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.l10n.post_topicSolved,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ],
+              if (count > 1)
+                Text(
+                  context.l10n.post_solutionsCount(count),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              if (onTap != null) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Symbols.arrow_forward_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -301,4 +317,3 @@ class _ExpandedExcerpt extends StatelessWidget {
     );
   }
 }
-
